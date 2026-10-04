@@ -13,6 +13,32 @@ interface MobileControlsProps {
   onHardDrop: () => void;
 }
 
+function TouchButton({
+  onPress,
+  children,
+  className = '',
+}: {
+  onPress: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      onTouchStart={(e) => {
+        e.preventDefault();
+        onPress();
+      }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onPress();
+      }}
+      className={`w-12 h-12 rounded-lg flex items-center justify-center active:scale-95 transition-transform select-none ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function MobileControls({
   onMoveLeft,
   onMoveRight,
@@ -31,69 +57,75 @@ export default function MobileControls({
         {/* Left side - Movement */}
         <div className="grid grid-cols-3 gap-1">
           <div></div>
-          <button
-            onTouchStart={onMoveUp}
-            className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center text-white text-lg active:bg-white/30 border border-white/20"
+          <TouchButton
+            onPress={onMoveForward}
+            className="bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-lg"
           >
             ↑
-          </button>
+          </TouchButton>
           <div></div>
-          <button
-            onTouchStart={onMoveLeft}
-            className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center text-white text-lg active:bg-white/30 border border-white/20"
+          <TouchButton
+            onPress={onMoveLeft}
+            className="bg-white/10 border border-white/20 text-white text-lg"
           >
             ←
-          </button>
-          <button
-            onTouchStart={onMoveDown}
-            className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center text-white text-lg active:bg-white/30 border border-white/20"
+          </TouchButton>
+          <TouchButton
+            onPress={onMoveBackward}
+            className="bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-lg"
           >
             ↓
-          </button>
-          <button
-            onTouchStart={onMoveRight}
-            className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center text-white text-lg active:bg-white/30 border border-white/20"
+          </TouchButton>
+          <TouchButton
+            onPress={onMoveRight}
+            className="bg-white/10 border border-white/20 text-white text-lg"
           >
             →
-          </button>
+          </TouchButton>
         </div>
 
-        {/* Center - Depth movement */}
+        {/* Center - Vertical movement */}
         <div className="flex flex-col gap-1 items-center">
-          <button
-            onTouchStart={onMoveForward}
-            className="w-12 h-12 bg-purple-500/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-purple-300 text-xs active:bg-purple-500/40 border border-purple-400/30"
+          <TouchButton
+            onPress={onMoveUp}
+            className="bg-green-500/20 border border-green-400/30 text-green-300 text-xs"
           >
-            FWD
-          </button>
-          <button
-            onTouchStart={onMoveBackward}
-            className="w-12 h-12 bg-purple-500/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-purple-300 text-xs active:bg-purple-500/40 border border-purple-400/30"
+            ▲
+          </TouchButton>
+          <TouchButton
+            onPress={onMoveDown}
+            className="bg-green-500/20 border border-green-400/30 text-green-300 text-xs"
           >
-            BWD
-          </button>
+            ▼
+          </TouchButton>
         </div>
 
         {/* Right side - Rotation & Drop */}
         <div className="flex flex-col gap-1 items-center">
-          <button
-            onTouchStart={onRotateY}
-            className="w-12 h-12 bg-cyan-500/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-cyan-300 text-xs active:bg-cyan-500/40 border border-cyan-400/30"
+          <TouchButton
+            onPress={onRotateY}
+            className="bg-purple-500/20 border border-purple-400/30 text-purple-300 text-[10px]"
           >
             ROT-Y
-          </button>
-          <button
-            onTouchStart={onRotateX}
-            className="w-12 h-12 bg-green-500/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-green-300 text-xs active:bg-green-500/40 border border-green-400/30"
+          </TouchButton>
+          <TouchButton
+            onPress={onRotateX}
+            className="bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[10px]"
           >
             ROT-X
-          </button>
-          <button
-            onTouchStart={onHardDrop}
-            className="w-12 h-12 bg-red-500/30 backdrop-blur-sm rounded-lg flex items-center justify-center text-red-300 text-xs active:bg-red-500/50 border border-red-400/30 font-bold"
+          </TouchButton>
+          <TouchButton
+            onPress={onRotateZ}
+            className="bg-teal-500/20 border border-teal-400/30 text-teal-300 text-[10px]"
+          >
+            ROT-Z
+          </TouchButton>
+          <TouchButton
+            onPress={onHardDrop}
+            className="bg-red-500/30 border border-red-400/30 text-red-300 text-[10px] font-bold"
           >
             DROP
-          </button>
+          </TouchButton>
         </div>
       </div>
     </div>

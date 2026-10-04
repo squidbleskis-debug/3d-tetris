@@ -79,8 +79,8 @@ export default function GameUI({
         </div>
       )}
 
-      {/* Start screen */}
-      {!gameOver && score === 0 && lines === 0 && (
+      {/* Start screen - only show when game hasn't started yet */}
+      {score === 0 && lines === 0 && !gameOver && !isPaused && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
           <div className="bg-black/70 backdrop-blur-lg rounded-2xl p-6 border border-white/10 text-center max-w-md mx-4">
             <div className="text-5xl mb-3">🎮</div>

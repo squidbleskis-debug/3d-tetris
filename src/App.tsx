@@ -44,11 +44,23 @@ function App() {
   const gameOverRef = useRef(gameOver);
   const isPausedRef = useRef(isPaused);
   const timeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const levelRef = useRef(level);
+  const comboRef = useRef(combo);
+  const nextPieceRef = useRef(nextPiece);
+  const scoreRef = useRef(score);
+  const linesRef = useRef(lines);
+  const achievedRef = useRef<Set<string>>(new Set());
 
+  // Keep refs in sync
   boardRef.current = board;
   currentPieceRef.current = currentPiece;
   gameOverRef.current = gameOver;
   isPausedRef.current = isPaused;
+  levelRef.current = level;
+  comboRef.current = combo;
+  nextPieceRef.current = nextPiece;
+  scoreRef.current = score;
+  linesRef.current = lines;
 
   // Timer for time played
   useEffect(() => {
@@ -56,6 +68,8 @@ function App() {
       timeRef.current = setInterval(() => {
         setTimePlayed(prev => prev + 1);
       }, 1000);
+    } else {
+      if (timeRef.current) clearInterval(timeRef.current);
     }
     return () => {
       if (timeRef.current) clearInterval(timeRef.current);
@@ -66,49 +80,34 @@ function App() {
   useEffect(() => {
     if (vkUser && gameStarted) {
       const achievements = vkPlaySDK.updateAchievements(score, level, lines, timePlayed);
-      const justUnlocked = achievements.find(a => a.unlocked && a.progress === a.maxProgress);
-      if (justUnlocked && !newAchievement) {
+      const justUnlocked = achievements.find(a => a.unlocked && !achievedRef.current.has(a.id));
+      if (justUnlocked) {
+        achievedRef.current.add(justUnlocked.id);
         setNewAchievement(justUnlocked.title);
         setTimeout(() => setNewAchievement(null), 3000);
       }
     }
-  }, [score, level, lines, timePlayed, vkUser]);
+  }, [score, level, lines, timePlayed, vkUser, gameStarted]);
 
   // Submit score on game over
   useEffect(() => {
-    if (gameOver && score > 0 && vkUser) {
-      vkPlaySDK.submitScore(score, level, lines);
+    if (gameOver && scoreRef.current > 0 && vkUser) {
+      vkPlaySDK.submitScore(scoreRef.current, levelRef.current, linesRef.current);
     }
-  }, [gameOver]);
+  }, [gameOver, vkUser]);
 
   const updateGhostPiece = useCallback((piece: Tetromino, currentBoard: Cell[][][]) => {
     let ghost = { ...piece, position: { ...piece.position } };
-    while (!checkCollision(currentBoard, ghost, { x: 0, y: 1, z: 0 })) {
+    let safety = 0;
+    while (!checkCollision(currentBoard, ghost, { x: 0, y: 1, z: 0 }) && safety < 30) {
       ghost = { ...ghost, position: { ...ghost.position, y: ghost.position.y + 1 } };
+      safety++;
     }
     setGhostPiece(ghost);
   }, []);
 
-  const startGame = useCallback(() => {
-    const newBoard = createEmptyBoard();
-    const piece = createRandomTetromino();
-    const next = createRandomTetromino();
-    setBoard(newBoard);
-    setCurrentPiece(piece);
-    setNextPiece(next);
-    setScore(0);
-    setLevel(0);
-    setLines(0);
-    setGameOver(false);
-    setIsPaused(false);
-    setGameStarted(true);
-    setTimePlayed(0);
-    setCombo(0);
-    updateGhostPiece(piece, newBoard);
-  }, [updateGhostPiece]);
-
   const spawnPiece = useCallback(() => {
-    const piece = nextPiece || createRandomTetromino();
+    const piece = nextPieceRef.current || createRandomTetromino();
     const next = createRandomTetromino();
 
     if (checkCollision(boardRef.current, piece)) {
@@ -121,7 +120,7 @@ function App() {
     setCurrentPiece(piece);
     setNextPiece(next);
     updateGhostPiece(piece, boardRef.current);
-  }, [nextPiece, updateGhostPiece]);
+  }, [updateGhostPiece]);
 
   const lockPiece = useCallback(() => {
     if (!currentPieceRef.current) return;
@@ -130,21 +129,35 @@ function App() {
     const { newBoard: clearedBoard, linesCleared } = clearLayers(newBoard);
 
     setBoard(clearedBoard);
+    boardRef.current = clearedBoard;
+
     if (linesCleared > 0) {
-      setCombo(prev => prev + 1);
+      const currentCombo = comboRef.current + 1;
+      setCombo(currentCombo);
+      comboRef.current = currentCombo;
       setShowCombo(true);
       setTimeout(() => setShowCombo(false), 1500);
-      setLines(prev => {
-        const newLines = prev + linesCleared;
-        setLevel(Math.floor(newLines / 5));
-        return newLines;
+
+      const newLines = linesRef.current + linesCleared;
+      setLines(newLines);
+      linesRef.current = newLines;
+      const newLevel = Math.floor(newLines / 5);
+      setLevel(newLevel);
+      levelRef.current = newLevel;
+
+      const points = calculateScore(linesCleared, levelRef.current) * (currentCombo > 0 ? 1 + currentCombo * 0.5 : 1);
+      setScore(prev => {
+        const newScore = prev + points;
+        scoreRef.current = newScore;
+        return newScore;
       });
-      setScore(prev => prev + calculateScore(linesCleared, level) * (combo > 0 ? 1 + combo * 0.5 : 1));
     } else {
       setCombo(0);
+      comboRef.current = 0;
     }
 
     setCurrentPiece(null);
+    currentPieceRef.current = null;
     setGhostPiece(null);
 
     setTimeout(() => {
@@ -152,7 +165,7 @@ function App() {
         spawnPiece();
       }
     }, 100);
-  }, [level, spawnPiece, combo]);
+  }, [spawnPiece]);
 
   const moveDown = useCallback(() => {
     if (!currentPieceRef.current || gameOverRef.current || isPausedRef.current) return;
@@ -163,15 +176,18 @@ function App() {
         position: { ...currentPieceRef.current.position, y: currentPieceRef.current.position.y + 1 },
       };
       setCurrentPiece(newPiece);
+      currentPieceRef.current = newPiece;
       updateGhostPiece(newPiece, boardRef.current);
     } else {
       lockPiece();
     }
   }, [lockPiece, updateGhostPiece]);
 
+  // Drop timer
   useEffect(() => {
     if (dropTimerRef.current) {
       clearInterval(dropTimerRef.current);
+      dropTimerRef.current = null;
     }
 
     if (gameStarted && !gameOver && !isPaused && currentPiece) {
@@ -182,45 +198,124 @@ function App() {
     return () => {
       if (dropTimerRef.current) {
         clearInterval(dropTimerRef.current);
+        dropTimerRef.current = null;
       }
     };
   }, [gameStarted, gameOver, isPaused, level, currentPiece, moveDown]);
 
-  const hardDrop = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-
-    let piece = { ...currentPiece, position: { ...currentPiece.position } };
-    while (!checkCollision(board, piece, { x: 0, y: 1, z: 0 })) {
-      piece = { ...piece, position: { ...piece.position, y: piece.position.y + 1 } };
-    }
+  const startGame = useCallback(() => {
+    const newBoard = createEmptyBoard();
+    const piece = createRandomTetromino();
+    const next = createRandomTetromino();
+    setBoard(newBoard);
+    boardRef.current = newBoard;
     setCurrentPiece(piece);
     currentPieceRef.current = piece;
+    setNextPiece(next);
+    nextPieceRef.current = next;
+    setScore(0);
+    scoreRef.current = 0;
+    setLevel(0);
+    levelRef.current = 0;
+    setLines(0);
+    linesRef.current = 0;
+    setGameOver(false);
+    gameOverRef.current = false;
+    setIsPaused(false);
+    isPausedRef.current = false;
+    setGameStarted(true);
+    setTimePlayed(0);
+    setCombo(0);
+    comboRef.current = 0;
+    updateGhostPiece(piece, newBoard);
+  }, [updateGhostPiece]);
 
-    const newBoard = placeTetromino(board, piece);
+  const hardDrop = useCallback(() => {
+    const piece = currentPieceRef.current;
+    const currentBoard = boardRef.current;
+    if (!piece || gameOverRef.current || isPausedRef.current) return;
+
+    let droppedPiece = { ...piece, position: { ...piece.position } };
+    let safety = 0;
+    while (!checkCollision(currentBoard, droppedPiece, { x: 0, y: 1, z: 0 }) && safety < 30) {
+      droppedPiece = { ...droppedPiece, position: { ...droppedPiece.position, y: droppedPiece.position.y + 1 } };
+      safety++;
+    }
+    setCurrentPiece(droppedPiece);
+    currentPieceRef.current = droppedPiece;
+
+    const newBoard = placeTetromino(currentBoard, droppedPiece);
     const { newBoard: clearedBoard, linesCleared } = clearLayers(newBoard);
     setBoard(clearedBoard);
+    boardRef.current = clearedBoard;
+
     if (linesCleared > 0) {
-      setLines(prev => {
-        const newLines = prev + linesCleared;
-        setLevel(Math.floor(newLines / 5));
-        return newLines;
+      const newLines = linesRef.current + linesCleared;
+      setLines(newLines);
+      linesRef.current = newLines;
+      const newLevel = Math.floor(newLines / 5);
+      setLevel(newLevel);
+      levelRef.current = newLevel;
+      setScore(prev => {
+        const newScore = prev + calculateScore(linesCleared, newLevel);
+        scoreRef.current = newScore;
+        return newScore;
       });
-      setScore(prev => prev + calculateScore(linesCleared, level));
     }
     setCurrentPiece(null);
+    currentPieceRef.current = null;
     setGhostPiece(null);
     setTimeout(() => {
       if (!gameOverRef.current) spawnPiece();
     }, 100);
-  }, [currentPiece, board, gameOver, isPaused, level, spawnPiece]);
+  }, [spawnPiece]);
+
+  const movePiece = useCallback((offset: { x: number; y: number; z: number }) => {
+    const piece = currentPieceRef.current;
+    if (!piece || gameOverRef.current || isPausedRef.current) return;
+    if (!checkCollision(boardRef.current, piece, offset)) {
+      const newPiece = {
+        ...piece,
+        position: {
+          x: piece.position.x + offset.x,
+          y: piece.position.y + offset.y,
+          z: piece.position.z + offset.z,
+        },
+      };
+      setCurrentPiece(newPiece);
+      currentPieceRef.current = newPiece;
+      updateGhostPiece(newPiece, boardRef.current);
+    }
+  }, [updateGhostPiece]);
+
+  const rotatePiece = useCallback((axis: 'x' | 'y' | 'z') => {
+    const piece = currentPieceRef.current;
+    if (!piece || gameOverRef.current || isPausedRef.current) return;
+    const rotated = rotateTetromino(piece, axis);
+    if (!checkCollision(boardRef.current, rotated)) {
+      setCurrentPiece(rotated);
+      currentPieceRef.current = rotated;
+      updateGhostPiece(rotated, boardRef.current);
+    }
+  }, [updateGhostPiece]);
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!currentPiece || gameOver || !gameStarted) return;
+      if (!currentPieceRef.current || gameOverRef.current || !gameStarted) {
+        // Allow Tab even when not playing
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          setShowVKPanel(prev => !prev);
+        }
+        return;
+      }
 
       if (e.key === 'p' || e.key === 'P') {
-        setIsPaused(prev => !prev);
+        setIsPaused(prev => {
+          isPausedRef.current = !prev;
+          return !prev;
+        });
         return;
       }
       if (e.key === 'Tab') {
@@ -229,102 +324,59 @@ function App() {
         return;
       }
 
-      if (isPaused) return;
-
-      const piece = currentPieceRef.current;
-      if (!piece) return;
-
-      let newPiece: Tetromino;
-      let offset = { x: 0, y: 0, z: 0 };
+      if (isPausedRef.current) return;
 
       switch (e.key) {
         case 'ArrowLeft':
-          offset = { x: -1, y: 0, z: 0 };
+          e.preventDefault();
+          movePiece({ x: -1, y: 0, z: 0 });
           break;
         case 'ArrowRight':
-          offset = { x: 1, y: 0, z: 0 };
+          e.preventDefault();
+          movePiece({ x: 1, y: 0, z: 0 });
           break;
         case 'ArrowUp':
-          offset = { x: 0, y: 0, z: -1 };
+          e.preventDefault();
+          movePiece({ x: 0, y: 0, z: -1 });
           break;
         case 'ArrowDown':
-          offset = { x: 0, y: 0, z: 1 };
+          e.preventDefault();
+          movePiece({ x: 0, y: 0, z: 1 });
           break;
         case 'q': case 'Q':
-          offset = { x: 0, y: 0, z: -1 };
+          movePiece({ x: 0, y: 0, z: -1 });
           break;
         case 'e': case 'E':
-          offset = { x: 0, y: 0, z: 1 };
+          movePiece({ x: 0, y: 0, z: 1 });
           break;
         case 'a': case 'A':
-          newPiece = rotateTetromino(piece, 'y');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('y');
+          break;
         case 'd': case 'D':
-          newPiece = rotateTetromino(piece, 'y');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('y');
+          break;
         case 'w': case 'W':
-          newPiece = rotateTetromino(piece, 'x');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('x');
+          break;
         case 's': case 'S':
-          newPiece = rotateTetromino(piece, 'x');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('x');
+          break;
         case 'r': case 'R':
-          newPiece = rotateTetromino(piece, 'z');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('z');
+          break;
         case 'f': case 'F':
-          newPiece = rotateTetromino(piece, 'z');
-          if (!checkCollision(board, newPiece)) {
-            setCurrentPiece(newPiece);
-            updateGhostPiece(newPiece, board);
-          }
-          return;
+          rotatePiece('z');
+          break;
         case ' ':
           e.preventDefault();
           hardDrop();
-          return;
-        default:
-          return;
-      }
-
-      if (offset.x !== 0 || offset.y !== 0 || offset.z !== 0) {
-        if (!checkCollision(board, piece, offset)) {
-          newPiece = {
-            ...piece,
-            position: {
-              x: piece.position.x + offset.x,
-              y: piece.position.y + offset.y,
-              z: piece.position.z + offset.z,
-            },
-          };
-          setCurrentPiece(newPiece);
-          updateGhostPiece(newPiece, board);
-        }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPiece, board, gameOver, gameStarted, isPaused, hardDrop, updateGhostPiece]);
+  }, [gameStarted, movePiece, rotatePiece, hardDrop]);
 
   // Auth screen
   if (showAuth) {
@@ -412,77 +464,26 @@ function App() {
         isPaused={isPaused}
         onStart={startGame}
         onRestart={startGame}
-        onPause={() => setIsPaused(prev => !prev)}
+        onPause={() => {
+          setIsPaused(prev => {
+            isPausedRef.current = !prev;
+            return !prev;
+          });
+        }}
       />
 
       {/* Mobile Controls */}
       {gameStarted && !gameOver && (
         <MobileControls
-          onMoveLeft={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            if (!checkCollision(board, currentPieceRef.current, { x: -1, y: 0, z: 0 })) {
-              const p = { ...currentPieceRef.current, position: { ...currentPieceRef.current.position, x: currentPieceRef.current.position.x - 1 } };
-              setCurrentPiece(p);
-              updateGhostPiece(p, board);
-            }
-          }}
-          onMoveRight={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            if (!checkCollision(board, currentPieceRef.current, { x: 1, y: 0, z: 0 })) {
-              const p = { ...currentPieceRef.current, position: { ...currentPieceRef.current.position, x: currentPieceRef.current.position.x + 1 } };
-              setCurrentPiece(p);
-              updateGhostPiece(p, board);
-            }
-          }}
-          onMoveForward={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            if (!checkCollision(board, currentPieceRef.current, { x: 0, y: 0, z: -1 })) {
-              const p = { ...currentPieceRef.current, position: { ...currentPieceRef.current.position, z: currentPieceRef.current.position.z - 1 } };
-              setCurrentPiece(p);
-              updateGhostPiece(p, board);
-            }
-          }}
-          onMoveBackward={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            if (!checkCollision(board, currentPieceRef.current, { x: 0, y: 0, z: 1 })) {
-              const p = { ...currentPieceRef.current, position: { ...currentPieceRef.current.position, z: currentPieceRef.current.position.z + 1 } };
-              setCurrentPiece(p);
-              updateGhostPiece(p, board);
-            }
-          }}
-          onMoveUp={() => moveDown()}
-          onMoveDown={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            if (!checkCollision(board, currentPieceRef.current, { x: 0, y: -1, z: 0 })) {
-              const p = { ...currentPieceRef.current, position: { ...currentPieceRef.current.position, y: Math.max(0, currentPieceRef.current.position.y - 1) } };
-              setCurrentPiece(p);
-              updateGhostPiece(p, board);
-            }
-          }}
-          onRotateY={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            const rotated = rotateTetromino(currentPieceRef.current, 'y');
-            if (!checkCollision(board, rotated)) {
-              setCurrentPiece(rotated);
-              updateGhostPiece(rotated, board);
-            }
-          }}
-          onRotateX={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            const rotated = rotateTetromino(currentPieceRef.current, 'x');
-            if (!checkCollision(board, rotated)) {
-              setCurrentPiece(rotated);
-              updateGhostPiece(rotated, board);
-            }
-          }}
-          onRotateZ={() => {
-            if (!currentPieceRef.current || isPausedRef.current) return;
-            const rotated = rotateTetromino(currentPieceRef.current, 'z');
-            if (!checkCollision(board, rotated)) {
-              setCurrentPiece(rotated);
-              updateGhostPiece(rotated, board);
-            }
-          }}
+          onMoveLeft={() => movePiece({ x: -1, y: 0, z: 0 })}
+          onMoveRight={() => movePiece({ x: 1, y: 0, z: 0 })}
+          onMoveForward={() => movePiece({ x: 0, y: 0, z: -1 })}
+          onMoveBackward={() => movePiece({ x: 0, y: 0, z: 1 })}
+          onMoveUp={() => movePiece({ x: 0, y: 1, z: 0 })}
+          onMoveDown={() => movePiece({ x: 0, y: -1, z: 0 })}
+          onRotateY={() => rotatePiece('y')}
+          onRotateX={() => rotatePiece('x')}
+          onRotateZ={() => rotatePiece('z')}
           onHardDrop={hardDrop}
         />
       )}

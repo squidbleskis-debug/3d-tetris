@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { vkPlaySDK, LeaderboardEntry, Achievement, VKUser } from '../services/vkplay';
 
 interface VKPlayPanelProps {
@@ -26,28 +26,37 @@ export default function VKPlayPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [lb, ach] = await Promise.all([
+        vkPlaySDK.getLeaderboard(),
+        Promise.resolve(vkPlaySDK.updateAchievements(currentScore, currentLevel, currentLines, timePlayed)),
+      ]);
+      setLeaderboard(lb);
+      setAchievements(ach);
+    } catch (err) {
+      console.error('Failed to load VK Play data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentScore, currentLevel, currentLines, timePlayed]);
+
   useEffect(() => {
     if (isOpen) {
       loadData();
     }
-  }, [isOpen]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    const [lb, ach] = await Promise.all([
-      vkPlaySDK.getLeaderboard(),
-      Promise.resolve(vkPlaySDK.updateAchievements(currentScore, currentLevel, currentLines, timePlayed)),
-    ]);
-    setLeaderboard(lb);
-    setAchievements(ach);
-    setIsLoading(false);
-  };
+  }, [isOpen, loadData]);
 
   const handleShare = async () => {
-    const success = await vkPlaySDK.shareToVK(currentScore);
-    if (success) {
-      setShareSuccess(true);
-      setTimeout(() => setShareSuccess(false), 3000);
+    try {
+      const success = await vkPlaySDK.shareToVK(currentScore);
+      if (success) {
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to share:', err);
     }
   };
 
@@ -68,6 +77,24 @@ export default function VKPlayPanel({
       case 'epic': return 'border-purple-500/30';
       case 'legendary': return 'border-yellow-500/30';
       default: return 'border-gray-500/30';
+    }
+  };
+
+  const getRarityLabel = (rarity: string) => {
+    switch (rarity) {
+      case 'legendary': return 'Легенда';
+      case 'epic': return 'Эпик';
+      case 'rare': return 'Редкое';
+      default: return 'Обычное';
+    }
+  };
+
+  const getRarityBadgeClass = (rarity: string) => {
+    switch (rarity) {
+      case 'legendary': return 'bg-yellow-500/20 text-yellow-400';
+      case 'epic': return 'bg-purple-500/20 text-purple-400';
+      case 'rare': return 'bg-blue-500/20 text-blue-400';
+      default: return 'bg-gray-500/20 text-gray-400';
     }
   };
 
@@ -147,14 +174,14 @@ export default function VKPlayPanel({
                   </div>
                   {leaderboard.map((entry, index) => (
                     <div
-                      key={entry.user.id + index}
+                      key={`${entry.user.id}-${index}`}
                       className={`flex items-center gap-3 p-3 rounded-xl border ${
                         entry.user.id === 'current_user'
                           ? 'bg-blue-500/10 border-blue-500/30'
                           : 'bg-white/5 border-white/5 hover:bg-white/10'
                       } transition-colors`}
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
                         index === 0 ? 'bg-yellow-500/20' :
                         index === 1 ? 'bg-gray-300/20' :
                         index === 2 ? 'bg-orange-500/20' : 'bg-white/5'
@@ -208,15 +235,8 @@ export default function VKPlayPanel({
                             <span className={`text-sm font-medium ${achievement.unlocked ? 'text-white' : 'text-gray-400'}`}>
                               {achievement.title}
                             </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                              achievement.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-400' :
-                              achievement.rarity === 'epic' ? 'bg-purple-500/20 text-purple-400' :
-                              achievement.rarity === 'rare' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {achievement.rarity === 'legendary' ? 'Легенда' :
-                               achievement.rarity === 'epic' ? 'Эпик' :
-                               achievement.rarity === 'rare' ? 'Редкое' : 'Обычное'}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${getRarityBadgeClass(achievement.rarity)}`}>
+                              {getRarityLabel(achievement.rarity)}
                             </span>
                           </div>
                           <p className="text-gray-500 text-xs mt-0.5">{achievement.description}</p>
@@ -224,7 +244,7 @@ export default function VKPlayPanel({
                             <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full bg-gradient-to-r ${getRarityColor(achievement.rarity)} transition-all duration-500`}
-                                style={{ width: `${(achievement.progress / achievement.maxProgress) * 100}%` }}
+                                style={{ width: `${Math.min(100, (achievement.progress / achievement.maxProgress) * 100)}%` }}
                               ></div>
                             </div>
                             <span className="text-gray-500 text-xs">
