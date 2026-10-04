@@ -24,21 +24,20 @@ export default function GameUI({
 }: GameUIProps) {
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col">
-      {/* Top bar */}
-      <div className="flex justify-between items-start p-4 pointer-events-auto">
-        <div className="bg-black/60 backdrop-blur-md rounded-xl p-4 border border-cyan-500/30">
-          <div className="text-cyan-400 text-xs uppercase tracking-wider mb-1">Score</div>
-          <div className="text-white text-2xl font-bold font-mono">{score.toLocaleString()}</div>
-        </div>
-        
-        <div className="flex gap-3">
-          <div className="bg-black/60 backdrop-blur-md rounded-xl p-4 border border-purple-500/30">
-            <div className="text-purple-400 text-xs uppercase tracking-wider mb-1">Level</div>
-            <div className="text-white text-2xl font-bold font-mono">{level}</div>
+      {/* Score panel - right side */}
+      <div className="absolute top-14 right-4 pointer-events-auto">
+        <div className="space-y-2">
+          <div className="bg-black/50 backdrop-blur-md rounded-xl p-3 border border-cyan-500/20 min-w-[100px]">
+            <div className="text-cyan-400/70 text-[10px] uppercase tracking-wider">Score</div>
+            <div className="text-white text-lg font-bold font-mono">{score.toLocaleString()}</div>
           </div>
-          <div className="bg-black/60 backdrop-blur-md rounded-xl p-4 border border-green-500/30">
-            <div className="text-green-400 text-xs uppercase tracking-wider mb-1">Lines</div>
-            <div className="text-white text-2xl font-bold font-mono">{lines}</div>
+          <div className="bg-black/50 backdrop-blur-md rounded-xl p-3 border border-purple-500/20 min-w-[100px]">
+            <div className="text-purple-400/70 text-[10px] uppercase tracking-wider">Level</div>
+            <div className="text-white text-lg font-bold font-mono">{level}</div>
+          </div>
+          <div className="bg-black/50 backdrop-blur-md rounded-xl p-3 border border-green-500/20 min-w-[100px]">
+            <div className="text-green-400/70 text-[10px] uppercase tracking-wider">Lines</div>
+            <div className="text-white text-lg font-bold font-mono">{lines}</div>
           </div>
         </div>
       </div>
@@ -46,26 +45,33 @@ export default function GameUI({
       {/* Center overlay for game states */}
       {(gameOver || isPaused) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-          <div className="bg-black/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center">
+          <div className="bg-black/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center max-w-sm mx-4">
             {gameOver ? (
               <>
-                <h2 className="text-4xl font-bold text-red-400 mb-2">Game Over</h2>
-                <p className="text-gray-300 mb-4">Final Score: {score.toLocaleString()}</p>
-                <button
-                  onClick={onRestart}
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-bold hover:scale-105 transition-transform"
-                >
-                  Play Again
-                </button>
+                <div className="text-5xl mb-3">💀</div>
+                <h2 className="text-3xl font-bold text-red-400 mb-2">Game Over</h2>
+                <div className="space-y-1 mb-4">
+                  <p className="text-gray-300">Счёт: <span className="text-white font-bold">{score.toLocaleString()}</span></p>
+                  <p className="text-gray-400 text-sm">Уровень {level} • {lines} линий</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onRestart}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-bold hover:scale-105 transition-transform"
+                  >
+                    🔄 Заново
+                  </button>
+                </div>
               </>
             ) : (
               <>
-                <h2 className="text-4xl font-bold text-yellow-400 mb-4">Paused</h2>
+                <div className="text-5xl mb-3">⏸️</div>
+                <h2 className="text-3xl font-bold text-yellow-400 mb-4">Пауза</h2>
                 <button
                   onClick={onPause}
                   className="px-6 py-3 bg-gradient-to-r from-green-500 to-cyan-500 rounded-lg text-white font-bold hover:scale-105 transition-transform"
                 >
-                  Resume
+                  ▶ Продолжить
                 </button>
               </>
             )}
@@ -74,53 +80,60 @@ export default function GameUI({
       )}
 
       {/* Start screen */}
-      {score === 0 && lines === 0 && !gameOver && (
+      {!gameOver && score === 0 && lines === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-          <div className="bg-black/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center max-w-md">
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-              3D TETRIS
-            </h1>
-            <p className="text-gray-300 mb-6 text-sm">
-              A three-dimensional twist on the classic game!
+          <div className="bg-black/70 backdrop-blur-lg rounded-2xl p-6 border border-white/10 text-center max-w-md mx-4">
+            <div className="text-5xl mb-3">🎮</div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
+              Готов играть?
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Управляй фигурами в трёх измерениях!
             </p>
-            <div className="text-left text-gray-400 text-xs mb-6 space-y-1">
-              <p><span className="text-cyan-400">←→↑↓</span> — Move piece</p>
-              <p><span className="text-cyan-400">Q/E</span> — Move forward/backward</p>
-              <p><span className="text-cyan-400">A/D</span> — Rotate Y axis</p>
-              <p><span className="text-cyan-400">W/S</span> — Rotate X axis</p>
-              <p><span className="text-cyan-400">R/F</span> — Rotate Z axis</p>
-              <p><span className="text-cyan-400">Space</span> — Hard drop</p>
-              <p><span className="text-cyan-400">P</span> — Pause</p>
-              <p><span className="text-cyan-400">Mouse</span> — Rotate camera</p>
+            <div className="grid grid-cols-2 gap-2 text-left text-gray-400 text-xs mb-5">
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">←→↑↓</span> Движение
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">Q/E</span> Глубина
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">A/D</span> Вращение Y
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">W/S</span> Вращение X
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">R/F</span> Вращение Z
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">Space</span> Дроп
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">Tab</span> VK Play
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-cyan-400">P</span> Пауза
+              </div>
             </div>
             <button
               onClick={onStart}
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-bold text-lg hover:scale-105 transition-transform shadow-lg shadow-cyan-500/30"
+              className="w-full px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white font-bold text-lg hover:scale-105 transition-transform shadow-lg shadow-cyan-500/30"
             >
-              Start Game
+              🚀 Начать игру
             </button>
           </div>
         </div>
       )}
 
-      {/* Bottom controls hint */}
-      <div className="mt-auto p-4 flex justify-center">
-        <div className="bg-black/40 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/10">
-          <p className="text-gray-500 text-xs">
-            🖱️ Drag to rotate camera • Arrow keys to move • Space to drop
+      {/* Bottom hint */}
+      <div className="mt-auto p-3 flex justify-center">
+        <div className="bg-black/30 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/5">
+          <p className="text-gray-600 text-[10px]">
+            🖱️ Вращай камеру • ←→↑↓ движение • Q/E глубина • Space дроп • Tab VK Play
           </p>
         </div>
       </div>
-
-      {/* Pause button */}
-      {!gameOver && score > 0 && (
-        <button
-          onClick={onPause}
-          className="absolute top-4 right-4 pointer-events-auto bg-black/60 backdrop-blur-md rounded-lg p-2 border border-white/20 text-white hover:bg-white/10 transition-colors"
-        >
-          {isPaused ? '▶' : '⏸'}
-        </button>
-      )}
     </div>
   );
 }
